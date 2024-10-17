@@ -23,7 +23,7 @@ CHAN_NAME = 'bot-spam'
 client = discord.Client(intents=discord.Intents.default())
 
 # Initialize the bot with the intents
-bot = commands.Bot(command_prefix='$', intents=intents)
+bot = commands.Bot(command_prefix='$', intents=intents, help_command=None)
 db = StockDB()
 
 # Helper function to get stock price
@@ -67,6 +67,13 @@ async def on_ready():
 # Command to add a new stock investment
 @bot.command(name='invest')
 async def invest(ctx, stock_name: str, quantity: int, price: float = None):
+    """
+    Invest in a stock.
+
+    Usage: $invest <stock_name> <quantity> [purchase_price]
+
+    If no purchase price is provided, the bot will use the latest price from Yahoo Finance.
+    """
     # Fetch the user ID from the context
     user_id = ctx.author.id
 
@@ -88,6 +95,11 @@ async def invest(ctx, stock_name: str, quantity: int, price: float = None):
 
 @bot.command(name='remove')
 async def delete_investment(ctx, stock_name: str):
+    """
+    Removes the stock from your portfolio
+
+    Usage: $remove <stock_name>
+    """
     # Fetch the user ID from the context
     user_id = ctx.author.id
 
@@ -106,6 +118,12 @@ async def delete_investment(ctx, stock_name: str):
 # Command to check the user's current gains/losses
 @bot.command(name='portfolio')
 async def portfolio(ctx):
+    """
+    Shows a summary of all your investments, including the ticker name, invested amount, and gain percentage.
+
+    Usage: $portfolio
+    """
+     
     # Fetch the user ID from the context
     user_id = ctx.author.id
 
@@ -159,6 +177,12 @@ async def portfolio(ctx):
 # Leaderboard command to display all users' gains/losses sorted
 @bot.command(name='leaderboard')
 async def leaderboard(ctx):
+    """
+    Show a leaderboard of all users ranked by gain percentage from investments.
+
+    Usage: $leaderboard
+    """
+
     # Retrieve all users' investments
     user_investments = db.get_all_investments()  # This method should return all user investments
 
@@ -202,6 +226,28 @@ async def leaderboard(ctx):
     # Send the leaderboard message in the channel
     await ctx.send(leaderboard_message)
 
+# Custom help command
+@bot.command(name='help')
+async def help_command(ctx, command_name: str = None):
+    """
+    Custom help command to display available commands and their usage.
+    """
+    if command_name is None:
+        # Display a list of commands
+        help_message = "**Help Menu**\n\n"
+        help_message += "`$invest` - Invest in a stock.\n"
+        help_message += "`$leaderboard` - Show a leaderboard of users sorted by gain percentage.\n"
+        help_message += "`$portfolio` - Display your portfolio with all investments.\n"
+        help_message += "`$delete_investment` - Delete an investment from your portfolio.\n"
+        help_message += "\nFor more details on a specific command, use `$help <command>`."
+        await ctx.send(help_message)
+    else:
+        # Provide detailed help for a specific command
+        command = bot.get_command(command_name)
+        if command:
+            await ctx.send(f"**Help for `{command_name}`**\n\n{command.help}")
+        else:
+            await ctx.send(f"Command `{command_name}` not found.")
 
 
 # A task that checks daily and posts leaderboard on the last day of the month
@@ -212,7 +258,6 @@ async def monthly_update():
 
     # Check if today is the last day of the month
     tomorrow = today + datetime.timedelta(days=1)
-    
     if tomorrow.day == 1:
         # It's the last day of the month, so send the leaderboard
         for guild in bot.guilds:
@@ -222,84 +267,51 @@ async def monthly_update():
                 #Send some motivational quotes
                 flow = inspirobot.flow()
 
-                # Retrieve all investments from the database
-                investments = db.get_all_investments()
-                user_gains_losses = {}
+                # Retrieve all users' investments
+                user_investments = db.get_all_investments()  # This method should return all user investments
 
-                # Calculate percentage gains/losses for each user
-                for user_id, stock, quantity, price in investments:
-                    current_price = get_stock_price(stock)
+                user_stats = {}
+
+                #Send some motivational quotes
+                flow = inspirobot.flow()
+
+                for user_id, stock_name, quantity, purchase_price in user_investments:
+                    if user_id not in user_stats:
+                        user_stats[user_id] = {'total_invested': 0, 'total_quantity': 0, 'total_gain': 0}
+
+                    total_invested = quantity * purchase_price
+                    user_stats[user_id]['total_invested'] += total_invested
+                    user_stats[user_id]['total_quantity'] += quantity
+
+                    current_price = get_stock_price(stock_name)
+
                     if current_price is not None:
-                        # Calculate percentage gain/loss
-                        percentage_gain_loss = ((current_price - price) / price) * 100
-                        if user_id in user_gains_losses:
-                            user_gains_losses[user_id] += percentage_gain_loss
-                        else:
-                            user_gains_losses[user_id] = percentage_gain_loss
+                        gain = (current_price - purchase_price) * quantity
+                        user_stats[user_id]['total_gain'] += gain
 
-                # Sort users by percentage gains/losses
-                sorted_leaderboard = sorted(user_gains_losses.items(), key=lambda x: x[1], reverse=True)
+                # Prepare leaderboard message
+                leaderboard_message = "**Monthly Leaderboard:**\n"
 
-                # Create the leaderboard message
-                leaderboard_message = "**Monthly Leaderboard (Percentage Gains/Losses):**\n"
-                for rank, (user_id, percentage_gain_loss) in enumerate(sorted_leaderboard, start=1):
+                # Calculate average gain percentage and create a sortable list
+                leaderboard_data = []
+                for user_id, stats in user_stats.items():
+                    if stats['total_quantity'] > 0 and stats['total_invested'] > 0:
+                        average_gain_percentage = (stats['total_gain'] / stats['total_invested']) * 100
+                        leaderboard_data.append((user_id, average_gain_percentage))
+
+                # Sort the leaderboard data by gain percentage in descending order
+                leaderboard_data.sort(key=lambda x: x[1], reverse=True)
+
+                # Format the sorted leaderboard with ranks
+                for rank, (user_id, gain_percentage) in enumerate(leaderboard_data, start=1):
                     user = await bot.fetch_user(int(user_id))  # Fetch user name
-                    leaderboard_message += f"{rank}. {user.name}: {percentage_gain_loss:.2f}%\n"
+                    leaderboard_message += f"{rank}. **{user}**: {gain_percentage:.2f}%\n"
 
-                # Send leaderboard message to the 'silenced-people' channel
+                if not leaderboard_data:
+                    leaderboard_message = "No investments found for any users."
+
+                # Send the monthly update message in the designated channel
                 await channel.send("**Inspirational Quote of the Month:**\n" + flow[0].text + "\n\n" + leaderboard_message)
-            else:
-                print(f"{CHAN_NAME} channel not found in guild {guild.name}")
-
-@tasks.loop(hours=24)
-async def monthly_update():
-    channel = discord.utils.get(bot.get_all_channels(), name=CHAN_NAME)
-
-    # Retrieve all users' investments
-    user_investments = db.get_all_investments()  # This method should return all user investments
-
-    user_stats = {}
-
-    #Send some motivational quotes
-    flow = inspirobot.flow()
-
-    for user_id, stock_name, quantity, purchase_price in user_investments:
-        if user_id not in user_stats:
-            user_stats[user_id] = {'total_invested': 0, 'total_quantity': 0, 'total_gain': 0}
-
-        total_invested = quantity * purchase_price
-        user_stats[user_id]['total_invested'] += total_invested
-        user_stats[user_id]['total_quantity'] += quantity
-
-        current_price = get_stock_price(stock_name)
-
-        if current_price is not None:
-            gain = (current_price - purchase_price) * quantity
-            user_stats[user_id]['total_gain'] += gain
-
-    # Prepare leaderboard message
-    leaderboard_message = "**Monthly Leaderboard:**\n"
-    
-    # Calculate average gain percentage and create a sortable list
-    leaderboard_data = []
-    for user_id, stats in user_stats.items():
-        if stats['total_quantity'] > 0 and stats['total_invested'] > 0:
-            average_gain_percentage = (stats['total_gain'] / stats['total_invested']) * 100
-            leaderboard_data.append((user_id, average_gain_percentage))
-
-    # Sort the leaderboard data by gain percentage in descending order
-    leaderboard_data.sort(key=lambda x: x[1], reverse=True)
-
-    # Format the sorted leaderboard with ranks
-    for rank, (user_id, gain_percentage) in enumerate(leaderboard_data, start=1):
-        user = await bot.fetch_user(int(user_id))  # Fetch user name
-        leaderboard_message += f"{rank}. **{user}**: {gain_percentage:.2f}%\n"
-
-    if not leaderboard_data:
-        leaderboard_message = "No investments found for any users."
-
-    # Send the monthly update message in the designated channel
-    await channel.send("**Inspirational Quote of the Month:**\n" + flow[0].text + "\n\n" + leaderboard_message)             
 
 # Start the bot
 bot.run(TOKEN)
