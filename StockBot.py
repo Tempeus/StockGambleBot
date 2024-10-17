@@ -62,13 +62,26 @@ async def on_ready():
     monthly_update.start()
 
 # Command to add a new stock investment
-@bot.command()
-async def invest(ctx, ticker: str, quantity: float, price: float):
-    """Add a new investment in a stock."""
-    ticker = ticker.upper()
-    user_id = str(ctx.author.id)
-    db.add_investment(user_id, ticker, quantity, price)
-    await ctx.send(f"Added investment: {quantity} shares of {ticker} at {price} USD.")
+@bot.command(name='invest')
+async def invest(ctx, stock_name: str, quantity: int, price: float = None):
+    # Fetch the user ID from the context
+    user_id = ctx.author.id
+
+    # If price is not provided, fetch the latest price from Yahoo Finance
+    if price is None:
+        stock = yf.Ticker(stock_name)
+        stock_info = stock.history(period="1d")
+        
+        # Get the latest closing price
+        if not stock_info.empty:
+            price = stock_info['Close'].iloc[-1]
+        else:
+            await ctx.send(f"Could not retrieve price for {stock_name}. Please specify a price.")
+            return
+
+    # Now that we have a price, proceed to store the investment
+    db.add_investment(user_id, stock_name, quantity, price)
+    await ctx.send(f"You have invested in {quantity} shares of {stock_name} at a price of ${price:.2f}.")
 
 @bot.command(name='delete_investment')
 async def delete_investment(ctx, stock_name: str):
@@ -88,12 +101,57 @@ async def delete_investment(ctx, stock_name: str):
 
 
 # Command to check the user's current gains/losses
-@bot.command()
+@bot.command(name='portfolio')
 async def portfolio(ctx):
-    """Check your portfolio's gain/loss."""
-    user_id = str(ctx.author.id)
-    total_gain_loss = calculate_gain_loss(user_id)
-    await ctx.send(f"Your portfolio gain/loss: {'+' if total_gain_loss >= 0 else ''}{total_gain_loss:.2f} USD")
+    # Fetch the user ID from the context
+    user_id = ctx.author.id
+
+    # Retrieve all investments for the user
+    investments = db.get_investments(user_id)
+    
+    if not investments:
+        await ctx.send("You have no investments in your portfolio.")
+        return
+
+    # Aggregate investments
+    aggregated_investments = {}
+    for stock_name, quantity, purchase_price in investments:
+        if stock_name not in aggregated_investments:
+            aggregated_investments[stock_name] = {'total_quantity': 0, 'total_invested': 0}
+        
+        aggregated_investments[stock_name]['total_quantity'] += quantity
+        aggregated_investments[stock_name]['total_invested'] += quantity * purchase_price
+
+    # Prepare the portfolio message
+    portfolio_message = "**Your Investment Portfolio:**\n"
+
+    for stock_name, data in aggregated_investments.items():
+        total_quantity = data['total_quantity']
+        total_invested = data['total_invested']
+        average_price = total_invested / total_quantity
+        
+        current_price = get_stock_price(stock_name)
+        
+        if current_price is None:
+            await ctx.send(f"Could not retrieve current price for {stock_name}.")
+            continue
+
+        # Calculate gain percentage based on average price
+        gain_percentage = ((current_price - average_price) / average_price) * 100
+        
+        # Format the investment details
+        portfolio_message += (
+            f"**Ticker:** {stock_name}\n"
+            f"**Total Quantity:** {total_quantity}\n"
+            f"**Average Invested Price:** ${average_price:.2f}\n"
+            f"**Current Price:** ${current_price:.2f}\n"
+            f"**Average Gain Percentage:** {gain_percentage:.2f}%\n"
+            "---------------------------\n"
+        )
+
+    # Send the portfolio message in the channel
+    await ctx.send(portfolio_message)
+
 
 # Leaderboard command to display all users' gains/losses sorted
 @bot.command(name='leaderboard')
