@@ -18,7 +18,7 @@ intents.message_content = True    # Enable message content updates (required for
 # environment variables
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-CHAN_NAME = 'test_invest'
+CHAN_NAME = 'bot-spam'
 
 client = discord.Client(intents=discord.Intents.default())
 
