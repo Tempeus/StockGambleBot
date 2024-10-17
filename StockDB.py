@@ -1,35 +1,46 @@
 import sqlite3
 import datetime
 
-# Connect to the SQLite database (or create it)
-conn = sqlite3.connect('investments.db')
+class StockDB:
+    def __init__(self, db_name='investments.db'):
+        # Initialize the connection to the database
+        self.conn = sqlite3.connect(db_name)
+        self.c = self.conn.cursor()
+        self.setup_db()
 
-# Create a cursor object to execute SQL commands
-c = conn.cursor()
+    def setup_db(self):
+        """Create the investments table if it doesn't exist."""
+        self.c.execute('''CREATE TABLE IF NOT EXISTS investments (
+                            user_id TEXT,
+                            stock_ticker TEXT,
+                            quantity REAL,
+                            price REAL,
+                            date TEXT
+                        )''')
+        self.conn.commit()
 
-# Create a table to store investments
-def setup_db():
-    c.execute('''CREATE TABLE IF NOT EXISTS investments (
-                    user_id TEXT,
-                    stock_ticker TEXT,
-                    quantity REAL,
-                    price REAL,
-                    date TEXT
-                )''')
-    conn.commit()
+    def add_investment(self, user_id, stock_ticker, quantity, price):
+        """Add a new investment to the database."""
+        self.c.execute('''INSERT INTO investments (user_id, stock_ticker, quantity, price, date)
+                          VALUES (?, ?, ?, ?, DATETIME('now'))''',
+                          (user_id, stock_ticker, quantity, price))
+        self.conn.commit()
 
-# Add an investment to the database
-def add_investment(user_id, stock_ticker, quantity, price):
-    c.execute('''INSERT INTO investments (user_id, stock_ticker, quantity, price, date)
-                 VALUES (?, ?, ?, ?, DATETIME('now'))''',
-                 (user_id, stock_ticker, quantity, price))
-    conn.commit()
+    def get_investments(self, user_id):
+        """Retrieve all investments for a specific user."""
+        self.c.execute('SELECT stock_ticker, quantity, price FROM investments WHERE user_id = ?', (user_id,))
+        return self.c.fetchall()
 
-# Get all investments for a specific user
-def get_investments(user_id):
-    c.execute('SELECT stock_ticker, quantity, price FROM investments WHERE user_id = ?', (user_id,))
-    return c.fetchall()
+    def get_all_investments(self):
+        """Retrieve all investments for all users."""
+        self.c.execute('SELECT user_id, stock_ticker, quantity, price FROM investments')
+        return self.c.fetchall()
 
-# Close the database connection
-def close_db():
-    conn.close()
+    def get_all_users(self):
+        """Fetch all unique users from the investments table."""
+        self.c.execute('SELECT DISTINCT user_id FROM investments')
+        return self.c.fetchall()
+
+    def close(self):
+        """Close the connection to the database."""
+        self.conn.close()
