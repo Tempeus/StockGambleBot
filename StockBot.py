@@ -6,6 +6,9 @@ import datetime
 import yfinance as yf
 from StockDB import StockDB
 
+# Troll APIs
+import inspirobot
+
 # Define your intents
 intents = discord.Intents.default()
 intents.members = False  # Disable typing events, if needed
@@ -195,9 +198,13 @@ async def monthly_update():
     if tomorrow.day == 1:
         # It's the last day of the month, so send the leaderboard
         for guild in bot.guilds:
-            # Find the 'silenced-people' channel in the guild
+            # Find the channel name in the guild
             channel = discord.utils.get(guild.channels, name=CHAN_NAME)
             if channel is not None:
+                #Send some motivational quotes
+                flow = inspirobot.flow()
+                await channel.send("Quote of the Month:\n" + flow[0].text)
+
                 # Retrieve all investments from the database
                 investments = db.get_all_investments()
                 user_gains_losses = {}
