@@ -69,6 +69,23 @@ async def invest(ctx, ticker: str, quantity: float, price: float):
     db.add_investment(user_id, ticker, quantity, price)
     await ctx.send(f"Added investment: {quantity} shares of {ticker} at {price} USD.")
 
+@bot.command(name='delete_investment')
+async def delete_investment(ctx, stock_name: str):
+    # Fetch the user ID from the context
+    user_id = ctx.author.id
+
+    # Check if the investment exists for the user in the database
+    investment = db.get_investment(user_id, stock_name)
+    
+    if investment:
+        # If investment exists, delete it
+        db.delete_investment(user_id, stock_name)
+        await ctx.send(f"Investment in {stock_name} has been deleted successfully.")
+    else:
+        # If investment doesn't exist, notify the user
+        await ctx.send(f"No investment found for {stock_name}. Please check the stock name and try again.")
+
+
 # Command to check the user's current gains/losses
 @bot.command()
 async def portfolio(ctx):
@@ -78,32 +95,33 @@ async def portfolio(ctx):
     await ctx.send(f"Your portfolio gain/loss: {'+' if total_gain_loss >= 0 else ''}{total_gain_loss:.2f} USD")
 
 # Leaderboard command to display all users' gains/losses sorted
-@bot.command()
+@bot.command(name='leaderboard')
 async def leaderboard(ctx):
-    """Display a leaderboard of users' total gains/losses."""
+    # Retrieve all investments from the database
     investments = db.get_all_investments()
     user_gains_losses = {}
 
-    # Calculate gains/losses for each user
+    # Calculate percentage gains/losses for each user
     for user_id, stock, quantity, price in investments:
         current_price = get_stock_price(stock)
         if current_price is not None:
-            gain_loss = (current_price - price) * quantity
+            # Calculate percentage gain/loss
+            percentage_gain_loss = ((current_price - price) / price) * 100
             if user_id in user_gains_losses:
-                user_gains_losses[user_id] += gain_loss
+                user_gains_losses[user_id] += percentage_gain_loss
             else:
-                user_gains_losses[user_id] = gain_loss
+                user_gains_losses[user_id] = percentage_gain_loss
 
-    # Sort users by gains/losses
+    # Sort users by percentage gains/losses
     sorted_leaderboard = sorted(user_gains_losses.items(), key=lambda x: x[1], reverse=True)
 
-    # Create leaderboard message
-    leaderboard_message = "**Leaderboard (Total Gains/Losses):**\n"
-    for rank, (user_id, gain_loss) in enumerate(sorted_leaderboard, start=1):
+    # Create the leaderboard message
+    leaderboard_message = "**Leaderboard (Percentage Gains/Losses):**\n"
+    for rank, (user_id, percentage_gain_loss) in enumerate(sorted_leaderboard, start=1):
         user = await bot.fetch_user(int(user_id))  # Fetch user name
-        leaderboard_message += f"{rank}. {user.name}: {'+' if gain_loss >= 0 else ''}{gain_loss:.2f} USD\n"
+        leaderboard_message += f"{rank}. {user.name}: {percentage_gain_loss:.2f}%\n"
 
-    # Send leaderboard message
+    # Send the leaderboard message in the channel where the command was invoked
     await ctx.send(leaderboard_message)
 
 # A task that checks daily and posts leaderboard on the last day of the month
@@ -113,10 +131,9 @@ async def monthly_update():
     today = datetime.date.today()
 
     # Check if today is the last day of the month
-    # A simple way to check this is to see if adding one day to 'today' results in the 1st of the next month
     tomorrow = today + datetime.timedelta(days=1)
-
-    if tomorrow.day == 1:
+    
+    if 1 == 1:
         # It's the last day of the month, so send the leaderboard
         for guild in bot.guilds:
             # Find the 'silenced-people' channel in the guild
@@ -126,29 +143,31 @@ async def monthly_update():
                 investments = db.get_all_investments()
                 user_gains_losses = {}
 
-                # Calculate gains/losses for each user
+                # Calculate percentage gains/losses for each user
                 for user_id, stock, quantity, price in investments:
                     current_price = get_stock_price(stock)
                     if current_price is not None:
-                        gain_loss = (current_price - price) * quantity
+                        # Calculate percentage gain/loss
+                        percentage_gain_loss = ((current_price - price) / price) * 100
                         if user_id in user_gains_losses:
-                            user_gains_losses[user_id] += gain_loss
+                            user_gains_losses[user_id] += percentage_gain_loss
                         else:
-                            user_gains_losses[user_id] = gain_loss
+                            user_gains_losses[user_id] = percentage_gain_loss
 
-                # Sort users by gains/losses
+                # Sort users by percentage gains/losses
                 sorted_leaderboard = sorted(user_gains_losses.items(), key=lambda x: x[1], reverse=True)
 
                 # Create the leaderboard message
-                leaderboard_message = "**Monthly Leaderboard (Total Gains/Losses):**\n"
-                for rank, (user_id, gain_loss) in enumerate(sorted_leaderboard, start=1):
+                leaderboard_message = "**Monthly Leaderboard (Percentage Gains/Losses):**\n"
+                for rank, (user_id, percentage_gain_loss) in enumerate(sorted_leaderboard, start=1):
                     user = await bot.fetch_user(int(user_id))  # Fetch user name
-                    leaderboard_message += f"{rank}. {user.name}: {'+' if gain_loss >= 0 else ''}{gain_loss:.2f} USD\n"
+                    leaderboard_message += f"{rank}. {user.name}: {percentage_gain_loss:.2f}%\n"
 
                 # Send leaderboard message to the 'silenced-people' channel
                 await channel.send(leaderboard_message)
             else:
-                print(f"'test_invest' channel not found in guild {guild.name}")
+                print(f"'silenced-people' channel not found in guild {guild.name}")
+
 
 '''
 ARMAGEDON CODE. THIS SHIT WILL SEND A MESSAGE TO EVERYONE ON THE SERVER

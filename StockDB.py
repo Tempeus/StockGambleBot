@@ -26,11 +26,19 @@ class StockDB:
                           (user_id, stock_ticker, quantity, price))
         self.conn.commit()
 
+    def get_investment(self, user_id, stock_ticker):
+        self.c.execute("SELECT * FROM investments WHERE user_id = ? AND stock_ticker = ?", (user_id, stock_ticker))
+        return self.c.fetchone()
+
+    def delete_investment(self, user_id, stock_ticker):
+        self.c.execute("DELETE FROM investments WHERE user_id = ? AND stock_ticker = ?", (user_id, stock_ticker))
+        self.conn.commit()
+
     def get_investments(self, user_id):
         """Retrieve all investments for a specific user."""
         self.c.execute('SELECT stock_ticker, quantity, price FROM investments WHERE user_id = ?', (user_id,))
         return self.c.fetchall()
-
+    
     def get_all_investments(self):
         """Retrieve all investments for all users."""
         self.c.execute('SELECT user_id, stock_ticker, quantity, price FROM investments')
