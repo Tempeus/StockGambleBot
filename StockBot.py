@@ -238,7 +238,7 @@ async def help_command(ctx, command_name: str = None):
         help_message += "`$invest` - Invest in a stock.\n"
         help_message += "`$leaderboard` - Show a leaderboard of users sorted by gain percentage.\n"
         help_message += "`$portfolio` - Display your portfolio with all investments.\n"
-        help_message += "`$delete_investment` - Delete an investment from your portfolio.\n"
+        help_message += "`$remove` - Delete an investment from your portfolio.\n"
         help_message += "\nFor more details on a specific command, use `$help <command>`."
         await ctx.send(help_message)
     else:
