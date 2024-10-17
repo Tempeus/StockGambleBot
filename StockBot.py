@@ -133,7 +133,7 @@ async def monthly_update():
     # Check if today is the last day of the month
     tomorrow = today + datetime.timedelta(days=1)
     
-    if 1 == 1:
+    if tomorrow.day == 1:
         # It's the last day of the month, so send the leaderboard
         for guild in bot.guilds:
             # Find the 'silenced-people' channel in the guild
