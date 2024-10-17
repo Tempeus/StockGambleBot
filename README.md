@@ -1,9 +1,11 @@
-** Running the bot
+# StockGambleBot
+
+## Running the bot
 
 python StockDB.py
 python StockBot.py
 
-** Summary of Commands
+## Summary of Commands
 
 !invest [STOCK_TICKER] [QUANTITY] [PRICE]: Logs an investment in a specific stock.
 !portfolio: Displays the user's current gains/losses for their investments.
