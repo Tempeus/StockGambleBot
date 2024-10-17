@@ -1,3 +1,4 @@
 
 .env
 __pycache__/StockDB.cpython-39.pyc
+investments.db
