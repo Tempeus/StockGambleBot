@@ -195,7 +195,7 @@ async def monthly_update():
     # Check if today is the last day of the month
     tomorrow = today + datetime.timedelta(days=1)
     
-    if tomorrow.day == 1:
+    if 1 == 1:
         # It's the last day of the month, so send the leaderboard
         for guild in bot.guilds:
             # Find the channel name in the guild
@@ -203,7 +203,6 @@ async def monthly_update():
             if channel is not None:
                 #Send some motivational quotes
                 flow = inspirobot.flow()
-                await channel.send("Quote of the Month:\n" + flow[0].text)
 
                 # Retrieve all investments from the database
                 investments = db.get_all_investments()
@@ -230,7 +229,7 @@ async def monthly_update():
                     leaderboard_message += f"{rank}. {user.name}: {percentage_gain_loss:.2f}%\n"
 
                 # Send leaderboard message to the 'silenced-people' channel
-                await channel.send(leaderboard_message)
+                await channel.send("**Inspirational Quote of the Month:**\n" + flow[0].text + "\n\n" + leaderboard_message)
             else:
                 print(f"{CHAN_NAME} channel not found in guild {guild.name}")
 
