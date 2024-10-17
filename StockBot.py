@@ -15,6 +15,7 @@ intents.message_content = True    # Enable message content updates (required for
 # environment variables
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
+CHAN_NAME = 'test_invest'
 
 client = discord.Client(intents=discord.Intents.default())
 
@@ -137,7 +138,7 @@ async def monthly_update():
         # It's the last day of the month, so send the leaderboard
         for guild in bot.guilds:
             # Find the 'silenced-people' channel in the guild
-            channel = discord.utils.get(guild.channels, name='test_invest')
+            channel = discord.utils.get(guild.channels, name=CHAN_NAME)
             if channel is not None:
                 # Retrieve all investments from the database
                 investments = db.get_all_investments()
@@ -166,7 +167,7 @@ async def monthly_update():
                 # Send leaderboard message to the 'silenced-people' channel
                 await channel.send(leaderboard_message)
             else:
-                print(f"'silenced-people' channel not found in guild {guild.name}")
+                print(f"{CHAN_NAME} channel not found in guild {guild.name}")
 
 
 '''
