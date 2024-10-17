@@ -86,7 +86,7 @@ async def invest(ctx, stock_name: str, quantity: int, price: float = None):
     db.add_investment(user_id, stock_name, quantity, price)
     await ctx.send(f"You have invested in {quantity} shares of {stock_name} at a price of ${price:.2f}.")
 
-@bot.command(name='delete_investment')
+@bot.command(name='remove')
 async def delete_investment(ctx, stock_name: str):
     # Fetch the user ID from the context
     user_id = ctx.author.id
@@ -159,32 +159,50 @@ async def portfolio(ctx):
 # Leaderboard command to display all users' gains/losses sorted
 @bot.command(name='leaderboard')
 async def leaderboard(ctx):
-    # Retrieve all investments from the database
-    investments = db.get_all_investments()
-    user_gains_losses = {}
+    # Retrieve all users' investments
+    user_investments = db.get_all_investments()  # This method should return all user investments
 
-    # Calculate percentage gains/losses for each user
-    for user_id, stock, quantity, price in investments:
-        current_price = get_stock_price(stock)
+    user_stats = {}
+
+    for user_id, stock_name, quantity, purchase_price in user_investments:
+        if user_id not in user_stats:
+            user_stats[user_id] = {'total_invested': 0, 'total_quantity': 0, 'total_gain': 0}
+
+        total_invested = quantity * purchase_price
+        user_stats[user_id]['total_invested'] += total_invested
+        user_stats[user_id]['total_quantity'] += quantity
+
+        current_price = get_stock_price(stock_name)
+
         if current_price is not None:
-            # Calculate percentage gain/loss
-            percentage_gain_loss = ((current_price - price) / price) * 100
-            if user_id in user_gains_losses:
-                user_gains_losses[user_id] += percentage_gain_loss
-            else:
-                user_gains_losses[user_id] = percentage_gain_loss
+            gain = (current_price - purchase_price) * quantity
+            user_stats[user_id]['total_gain'] += gain
 
-    # Sort users by percentage gains/losses
-    sorted_leaderboard = sorted(user_gains_losses.items(), key=lambda x: x[1], reverse=True)
+    # Prepare leaderboard message
+    leaderboard_message = "**Leaderboard:**\n"
+    
+    # Calculate average gain percentage and create a sortable list
+    leaderboard_data = []
+    for user_id, stats in user_stats.items():
+        if stats['total_quantity'] > 0 and stats['total_invested'] > 0:
+            average_gain_percentage = (stats['total_gain'] / stats['total_invested']) * 100
+            leaderboard_data.append((user_id, average_gain_percentage))
 
-    # Create the leaderboard message
-    leaderboard_message = "**Leaderboard (Percentage Gains/Losses):**\n"
-    for rank, (user_id, percentage_gain_loss) in enumerate(sorted_leaderboard, start=1):
+    # Sort the leaderboard data by gain percentage in descending order
+    leaderboard_data.sort(key=lambda x: x[1], reverse=True)
+
+    # Format the sorted leaderboard with ranks
+    for rank, (user_id, gain_percentage) in enumerate(leaderboard_data, start=1):
         user = await bot.fetch_user(int(user_id))  # Fetch user name
-        leaderboard_message += f"{rank}. {user.name}: {percentage_gain_loss:.2f}%\n"
+        leaderboard_message += f"{rank}. **{user}**: {gain_percentage:.2f}%\n"
 
-    # Send the leaderboard message in the channel where the command was invoked
+    if not leaderboard_data:
+        leaderboard_message = "No investments found for any users."
+
+    # Send the leaderboard message in the channel
     await ctx.send(leaderboard_message)
+
+
 
 # A task that checks daily and posts leaderboard on the last day of the month
 @tasks.loop(hours=24)  # Check once per day
@@ -233,6 +251,58 @@ async def monthly_update():
             else:
                 print(f"{CHAN_NAME} channel not found in guild {guild.name}")
 
+@tasks.loop(hours=24)
+async def monthly_update():
+    channel = discord.utils.get(bot.get_all_channels(), name=CHAN_NAME)
+
+    # Retrieve all users' investments
+    user_investments = db.get_all_investments()  # This method should return all user investments
+
+    user_stats = {}
+
+    #Send some motivational quotes
+    flow = inspirobot.flow()
+
+    for user_id, stock_name, quantity, purchase_price in user_investments:
+        if user_id not in user_stats:
+            user_stats[user_id] = {'total_invested': 0, 'total_quantity': 0, 'total_gain': 0}
+
+        total_invested = quantity * purchase_price
+        user_stats[user_id]['total_invested'] += total_invested
+        user_stats[user_id]['total_quantity'] += quantity
+
+        current_price = get_stock_price(stock_name)
+
+        if current_price is not None:
+            gain = (current_price - purchase_price) * quantity
+            user_stats[user_id]['total_gain'] += gain
+
+    # Prepare leaderboard message
+    leaderboard_message = "**Monthly Leaderboard:**\n"
+    
+    # Calculate average gain percentage and create a sortable list
+    leaderboard_data = []
+    for user_id, stats in user_stats.items():
+        if stats['total_quantity'] > 0 and stats['total_invested'] > 0:
+            average_gain_percentage = (stats['total_gain'] / stats['total_invested']) * 100
+            leaderboard_data.append((user_id, average_gain_percentage))
+
+    # Sort the leaderboard data by gain percentage in descending order
+    leaderboard_data.sort(key=lambda x: x[1], reverse=True)
+
+    # Format the sorted leaderboard with ranks
+    for rank, (user_id, gain_percentage) in enumerate(leaderboard_data, start=1):
+        user = await bot.fetch_user(int(user_id))  # Fetch user name
+        leaderboard_message += f"{rank}. **{user}**: {gain_percentage:.2f}%\n"
+
+    if not leaderboard_data:
+        leaderboard_message = "No investments found for any users."
+
+    # Send the monthly update message in the designated channel
+    await channel.send("**Inspirational Quote of the Month:**\n" + flow[0].text + "\n\n" + leaderboard_message)             
+
+# Start the bot
+bot.run(TOKEN)
 
 '''
 ARMAGEDON CODE. THIS SHIT WILL SEND A MESSAGE TO EVERYONE ON THE SERVER
@@ -243,10 +313,5 @@ for guild in bot.guilds:
             result = calculate_gain_loss(user_id)
             if result:
                 try:
-                    await member.send(f"My bad, i'm a bot and my circuits malfunctioned. ignore the previous message")
-                except discord.Forbidden:
-                    print(f"Couldn't send a message to {member.name}")
+                    await member.send(f"I'm tritin and I like feet")
 '''
-
-# Start the bot
-bot.run(TOKEN)
