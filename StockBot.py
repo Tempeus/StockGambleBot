@@ -32,7 +32,8 @@ def ticker_exists(ticker):
         stock = yf.Ticker(ticker)
         # Check if valid data can be retrieved for the ticker
         if stock.info:
-            return True
+            price = stock.history(period="1d")['Close'][0]
+            return price is not None and price > 0
         else:
             return False
     except Exception as e:
@@ -91,11 +92,11 @@ async def invest(ctx, stock_name: str, current_price = None):
             try:
                 current_price = get_stock_price(stock_name)
             except Exception as e:
-                await ctx.send(f"Could not retrieve price for {stock_name}. Please specify a price.")
+                await ctx.send(f"Stock {stock_name} does not exist. Please try again.")
                 return
             
         if current_price is None:
-            await ctx.send(f"Could not retrieve price for {stock_name}. Please specify a price.")
+            await ctx.send(f"Stock {stock_name} does not exist. Please try again.")
             return
 
         # Calculate the number of fractional shares
