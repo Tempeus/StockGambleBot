@@ -36,16 +36,6 @@ def get_stock_price(ticker):
         print(f"Error fetching stock price: {e}")
         return None
 
-# Helper function to get stock price
-def get_stock_price(ticker):
-    try:
-        stock = yf.Ticker(ticker)
-        price = stock.history(period="1d")['Close'][0]
-        return price
-    except Exception as e:
-        print(f"Error fetching stock price: {e}")
-        return None
-
 # Helper function to calculate the gain/loss for a user
 def calculate_gain_loss(user_id):
     investments = db.get_investments(user_id)
@@ -66,32 +56,29 @@ async def on_ready():
 
 # Command to add a new stock investment
 @bot.command(name='invest')
-async def invest(ctx, stock_name: str, quantity: int, price: float = None):
+async def invest(ctx, stock_name: str, current_price: float = None):
     """
-    Invest in a stock.
+    Invest $20 into a stock.
 
-    Usage: $invest <stock_name> <quantity> [purchase_price]
+    Usage: $invest <stock_name> [purchase price]
 
-    If no purchase price is provided, the bot will use the latest price from Yahoo Finance.
+    If no purchase price is provided, the bot will use the latest price from Yahoo Finance
     """
-    # Fetch the user ID from the context
-    user_id = ctx.author.id
-
-    # If price is not provided, fetch the latest price from Yahoo Finance
-    if price is None:
-        stock = yf.Ticker(stock_name)
-        stock_info = stock.history(period="1d")
-        
-        # Get the latest closing price
-        if not stock_info.empty:
-            price = stock_info['Close'].iloc[-1]
-        else:
+    
+    if current_price is None:
+        try:
+            current_price = get_stock_price(stock_name)
+        except Exception as e:
             await ctx.send(f"Could not retrieve price for {stock_name}. Please specify a price.")
             return
 
-    # Now that we have a price, proceed to store the investment
-    db.add_investment(user_id, stock_name, quantity, price)
-    await ctx.send(f"You have invested in {quantity} shares of {stock_name} at a price of ${price:.2f}.")
+    # Calculate the number of fractional shares
+    fractional_shares = 20 / current_price
+
+    # Save the investment to the database (or update existing entry)
+    db.add_investment(user_id=ctx.author.id, stock_ticker=stock_name, quantity=fractional_shares, price=current_price)
+
+    await ctx.send(f"Successfully invested ${20} into {stock_name} at ${current_price:.2f} per share. You now own {fractional_shares:.6f} shares.")
 
 @bot.command(name='remove')
 async def delete_investment(ctx, stock_name: str):
@@ -163,7 +150,7 @@ async def portfolio(ctx):
         # Format the investment details
         portfolio_message += (
             f"**Ticker:** {stock_name}\n"
-            f"**Total Quantity:** {total_quantity}\n"
+            f"**Total Quantity:** {total_quantity:.3f}\n"
             f"**Average Invested Price:** ${average_price:.2f}\n"
             f"**Current Price:** ${current_price:.2f}\n"
             f"**Average Gain Percentage:** {gain_percentage:.2f}%\n"
@@ -320,10 +307,7 @@ bot.run(TOKEN)
 ARMAGEDON CODE. THIS SHIT WILL SEND A MESSAGE TO EVERYONE ON THE SERVER
 for guild in bot.guilds:
     for member in guild.members:
-        if not member.bot:  # Don't send updates to bots
-            user_id = str(member.id)
-            result = calculate_gain_loss(user_id)
-            if result:
-                try:
-                    await member.send(f"I'm tritin and I like feet")
+        if not member.bot:  # Don't messages to bots
+            try:
+                await member.send(f"I'm tritin and I like feet")
 '''
