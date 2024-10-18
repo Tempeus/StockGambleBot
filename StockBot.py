@@ -26,6 +26,18 @@ client = discord.Client(intents=discord.Intents.default())
 bot = commands.Bot(command_prefix='$', intents=intents, help_command=None)
 db = StockDB()
 
+# Helper function to check if ticker exists
+def ticker_exists(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        # Check if valid data can be retrieved for the ticker
+        if stock.info:
+            return True
+        else:
+            return False
+    except Exception as e:
+        return False
+
 # Helper function to get stock price
 def get_stock_price(ticker):
     try:
@@ -56,7 +68,7 @@ async def on_ready():
 
 # Command to add a new stock investment
 @bot.command(name='invest')
-async def invest(ctx, stock_name: str, current_price: float = None):
+async def invest(ctx, stock_name: str, current_price = None):
     """
     Invest $20 into a stock.
 
@@ -64,21 +76,37 @@ async def invest(ctx, stock_name: str, current_price: float = None):
 
     If no purchase price is provided, the bot will use the latest price from Yahoo Finance
     """
-    
-    if current_price is None:
+    if current_price is not None:
         try:
-            current_price = get_stock_price(stock_name)
-        except Exception as e:
+            current_price = float(current_price)
+            if current_price <= 0:
+                await ctx.send(f"Please put a valid price.")
+                return
+        except ValueError:
+            await ctx.send(f"Please provide a valid numerical price for {stock_name}.")
+            return
+    
+    if ticker_exists(stock_name):
+        if current_price is None:
+            try:
+                current_price = get_stock_price(stock_name)
+            except Exception as e:
+                await ctx.send(f"Could not retrieve price for {stock_name}. Please specify a price.")
+                return
+            
+        if current_price is None:
             await ctx.send(f"Could not retrieve price for {stock_name}. Please specify a price.")
             return
 
-    # Calculate the number of fractional shares
-    fractional_shares = 20 / current_price
+        # Calculate the number of fractional shares
+        fractional_shares = 20 / current_price
 
-    # Save the investment to the database (or update existing entry)
-    db.add_investment(user_id=ctx.author.id, stock_ticker=stock_name, quantity=fractional_shares, price=current_price)
+        # Save the investment to the database (or update existing entry)
+        db.add_investment(user_id=ctx.author.id, stock_ticker=stock_name, quantity=fractional_shares, price=current_price)
 
-    await ctx.send(f"Successfully invested ${20} into {stock_name} at ${current_price:.2f} per share. You now own {fractional_shares:.6f} shares.")
+        await ctx.send(f"Successfully invested ${20} into {stock_name} at ${current_price:.2f} per share. You now own {fractional_shares:.6f} shares.")
+    else:
+        await ctx.send(f"Stock {stock_name} does not exist. Please try again.")
 
 @bot.command(name='remove')
 async def delete_investment(ctx, stock_name: str):
@@ -310,4 +338,15 @@ for guild in bot.guilds:
         if not member.bot:  # Don't messages to bots
             try:
                 await member.send(f"I'm tritin and I like feet")
+'''
+
+
+'''
+shit to fix
+
+$invest stock -12
+$invest stock 0
+$invest '--; 'DROP TABLE *';
+$invest :MikeWeird: :MikeWeird: :MikeWeird:
+$invest emoji 3 (implement a check that the stock exists)
 '''
