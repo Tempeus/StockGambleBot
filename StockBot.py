@@ -275,7 +275,7 @@ async def leaderboard(ctx):
 
     Usage: $leaderboard
     """
-    leaderboard_message = await generate_leaderboard_message("Leaderboard")
+    leaderboard_message = await generate_leaderboard_message("Leaderboard:")
     await ctx.send(leaderboard_message)
 
 
@@ -323,7 +323,7 @@ async def weekly_leaderboard():
                 if role:
                     leaderboard_message += f"{role.mention}\n"
                 
-                leaderboard_message += await generate_leaderboard_message("Weekly Leaderboard")
+                leaderboard_message += await generate_leaderboard_message("Weekly Leaderboard:")
                 
                 # Send the leaderboard message
                 leaderboard_post = await channel.send(leaderboard_message + "\n React if you want to be notified weekly")
