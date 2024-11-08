@@ -1,10 +1,12 @@
 import os
 import discord
 from discord.ext import commands, tasks
+from discord.utils import get
 from dotenv import load_dotenv
 import datetime
 import yfinance as yf
 from StockDB import StockDB
+from dadjokes import Dadjoke
 
 # Troll APIs
 import inspirobot
@@ -110,7 +112,37 @@ async def generate_leaderboard_message(title):
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user}')
-    weekly_leaderboard.start()
+    if not weekly_leaderboard.is_running():
+        weekly_leaderboard.start()
+
+# Reaction add event listener to manage "Stock Gambler" role
+@bot.event
+async def on_reaction_add(reaction, user):
+    if user.bot:
+        return
+
+    # Check if the reaction is on a leaderboard message
+    if reaction.message.content.startswith("**Inspirational Quote of the Week:**"):
+        guild = reaction.message.guild
+        role = get(guild.roles, name="Stock Gamblers")
+        dadjoke = Dadjoke()
+
+        if role:
+            # Assign "Stock Gambler" role if the user reacts with ✅
+            if str(reaction.emoji) == "✅":
+                if role in user.roles:
+                    await user.send("***You are already in the 'Stock Gambler' role!***\n" + dadjoke.joke)
+                else:
+                    await user.add_roles(role)
+                    await user.send("***You've been added to the 'Stock Gambler' role!***\n" + dadjoke.joke)
+            
+            # Remove "Stock Gambler" role if the user reacts with ❌
+            elif str(reaction.emoji) == "❌":
+                if role in user.roles:
+                    await user.remove_roles(role)
+                    await user.send("***You've been removed from the 'Stock Gambler' role.***\n" + dadjoke.joke)
+                else:
+                    await user.send("***You are not in the 'Stock Gambler' role, so there's nothing to remove.***\n" + dadjoke.joke)
 
 # Command to add a new stock investment
 @bot.command(name='invest')
@@ -278,17 +310,31 @@ async def weekly_leaderboard():
     current_time = datetime.datetime.now()
 
     # Check if today is Saturday and the time is 9 PM
-    if current_time.weekday() == 5 and current_time.hour == 21:  # 5 = Saturday, 21 = 9 PM
+    if current_time.weekday() == 4: #and current_time.hour == 21:  # 5 = Saturday, 21 = 9 PM
         for guild in bot.guilds:
             channel = discord.utils.get(guild.channels, name=CHAN_NAME)
             if channel:
                 # Send inspirational quote
                 flow = inspirobot.flow()
-                await channel.send("**Inspirational Quote of the Week:**\n" + flow[0].text)
+                leaderboard_message = f"**Inspirational Quote of the Week:**\n" + flow[0].text +"\n\n"
 
-                # Send leaderboard message
-                leaderboard_message = await generate_leaderboard_message("Weekly Leaderboard")
-                await channel.send(leaderboard_message)
+                # Prepare leaderboard message with a mention for "Stock Gambler" role
+                role = get(guild.roles, name="Stock Gambler")
+                if role:
+                    leaderboard_message += f"{role.mention}\n**Weekly Leaderboard:**"
+                else:
+                    leaderboard_message += "**Weekly Leaderboard:**"
+                
+                leaderboard_message += await generate_leaderboard_message("Weekly Leaderboard")
+                
+                # Send the leaderboard message
+                leaderboard_post = await channel.send(leaderboard_message)
+                
+                # Add a green checkmark reaction for role assignment
+                await leaderboard_post.add_reaction("✅")  # add role
+                await leaderboard_post.add_reaction("❌")  # Remove role
+
+
 
 # Start the bot
 bot.run(TOKEN)
