@@ -110,7 +110,7 @@ async def generate_leaderboard_message(title):
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user}')
-    monthly_update.start()
+    weekly_leaderboard.start()
 
 # Command to add a new stock investment
 @bot.command(name='invest')
@@ -271,22 +271,23 @@ async def help_command(ctx, command_name: str = None):
             await ctx.send(f"Command `{command_name}` not found.")
 
 
-# A task that checks daily and posts leaderboard on the last day of the month
-@tasks.loop(hours=24)  # Check once per day
-async def monthly_update():
-    today = datetime.date.today()
-    tomorrow = today + datetime.timedelta(days=1)
+# Task that checks hourly and posts the weekly leaderboard every Saturday at 9 PM
+@tasks.loop(hours=1)  # Check every hour
+async def weekly_leaderboard():
+    # Get the current time in the system's local timezone
+    current_time = datetime.datetime.now()
 
-    if tomorrow.day == 1:
+    # Check if today is Saturday and the time is 9 PM
+    if current_time.weekday() == 5 and current_time.hour == 21:  # 5 = Saturday, 21 = 9 PM
         for guild in bot.guilds:
             channel = discord.utils.get(guild.channels, name=CHAN_NAME)
             if channel:
                 # Send inspirational quote
                 flow = inspirobot.flow()
-                await channel.send("**Inspirational Quote of the Month:**\n" + flow[0].text)
+                await channel.send("**Inspirational Quote of the Week:**\n" + flow[0].text)
 
                 # Send leaderboard message
-                leaderboard_message = await generate_leaderboard_message("Monthly Leaderboard")
+                leaderboard_message = await generate_leaderboard_message("Weekly Leaderboard")
                 await channel.send(leaderboard_message)
 
 # Start the bot
