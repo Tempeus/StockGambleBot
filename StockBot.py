@@ -310,7 +310,7 @@ async def weekly_leaderboard():
     current_time = datetime.datetime.now()
 
     # Check if today is Saturday and the time is 9 PM
-    if current_time.weekday() == 4: #and current_time.hour == 21:  # 5 = Saturday, 21 = 9 PM
+    if current_time.weekday() == 5 and current_time.hour == 21:  # 5 = Saturday, 21 = 9 PM
         for guild in bot.guilds:
             channel = discord.utils.get(guild.channels, name=CHAN_NAME)
             if channel:
@@ -321,20 +321,16 @@ async def weekly_leaderboard():
                 # Prepare leaderboard message with a mention for "Stock Gambler" role
                 role = get(guild.roles, name="Stock Gambler")
                 if role:
-                    leaderboard_message += f"{role.mention}\n**Weekly Leaderboard:**"
-                else:
-                    leaderboard_message += "**Weekly Leaderboard:**"
+                    leaderboard_message += f"{role.mention}\n"
                 
                 leaderboard_message += await generate_leaderboard_message("Weekly Leaderboard")
                 
                 # Send the leaderboard message
-                leaderboard_post = await channel.send(leaderboard_message)
+                leaderboard_post = await channel.send(leaderboard_message + "\n React if you want to be notified weekly")
                 
                 # Add a green checkmark reaction for role assignment
                 await leaderboard_post.add_reaction("✅")  # add role
                 await leaderboard_post.add_reaction("❌")  # Remove role
-
-
 
 # Start the bot
 bot.run(TOKEN)
