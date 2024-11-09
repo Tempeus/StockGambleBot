@@ -303,14 +303,14 @@ async def help_command(ctx, command_name: str = None):
             await ctx.send(f"Command `{command_name}` not found.")
 
 
-# Task that checks hourly and posts the weekly leaderboard every Saturday at 9 PM
+# Task that checks hourly and posts the weekly leaderboard every Friday at 5 PM
 @tasks.loop(hours=1)  # Check every hour
 async def weekly_leaderboard():
     # Get the current time in the system's local timezone
     current_time = datetime.datetime.now()
 
     # Check if today is Saturday and the time is 9 PM
-    if current_time.weekday() == 5 and current_time.hour == 21:  # 5 = Saturday, 21 = 9 PM
+    if current_time.weekday() == 4 and current_time.hour == 17:  # 5 = Friday, 17 = 5 PM
         for guild in bot.guilds:
             channel = discord.utils.get(guild.channels, name=CHAN_NAME)
             if channel:
