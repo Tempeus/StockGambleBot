@@ -154,6 +154,16 @@ async def invest(ctx, stock_name: str):
 
     The bot will use the latest price from Yahoo Finance
     """
+    user_id = ctx.author.id
+
+    # Check if the user already has an active investment
+    current_investments = db.get_investments(user_id)
+    if current_investments:
+        await ctx.send(
+            "You already have an active investment. Please remove your current investment using `$remove <stock_name>` before investing in a new stock."
+        )
+        return
+
     current_price = None
 
     if ticker_exists(stock_name):
@@ -267,6 +277,7 @@ async def leaderboard(ctx):
     Usage: $leaderboard
     """
     leaderboard_message = await generate_leaderboard_message("Leaderboard:")
+    db.store_historical_data() #here for testing, remove it after
     await ctx.send(leaderboard_message)
 
 
@@ -300,8 +311,8 @@ async def weekly_leaderboard():
     # Get the current time in the system's local timezone
     current_time = datetime.datetime.now()
 
-    # Check if today is Saturday and the time is 9 PM
-    if current_time.weekday() == 4 and current_time.hour == 17:  # 5 = Friday, 17 = 5 PM
+    # Check if today is Friday and the time is 5 PM
+    if current_time.weekday() == 4 and current_time.hour == 17:  # 4 = Friday, 17 = 5 PM
         for guild in bot.guilds:
             channel = discord.utils.get(guild.channels, name=CHAN_NAME)
             if channel:
@@ -322,6 +333,7 @@ async def weekly_leaderboard():
                 # Add a green checkmark reaction for role assignment
                 await leaderboard_post.add_reaction("✅")  # add role
                 await leaderboard_post.add_reaction("❌")  # Remove role
+                db.store_historical_data()
 
 # Start the bot
 bot.run(TOKEN)

@@ -1,7 +1,6 @@
 import sqlite3
 import datetime
 import yfinance as yf
-import StockBot
 import pandas as pd
 
 class StockDB:
@@ -59,12 +58,17 @@ class StockDB:
         self.c.execute('SELECT DISTINCT user_id FROM investments')
         return self.c.fetchall()
 
-    def store_historical_data(self, yahoo_api_client):
+    def store_historical_data(self):
         """Store historical gains or losses for each user's stocks."""
         investments = self.get_all_investments()
         for user_id, stock_ticker, quantity, purchase_price in investments:
             # Fetch the current stock price using the Yahoo API client
-            current_price = StockBot.get_stock_price(stock_ticker)  # Assume this method exists
+            try:
+                stock = yf.Ticker(stock_ticker)
+                current_price = stock.history(period="1d")['Close'][0]
+            except Exception as e:
+                print(f"Error fetching stock price: {e}")
+                return None
             
             # Calculate the gain or loss
             gain_loss = (current_price - purchase_price) * quantity
@@ -96,6 +100,9 @@ class StockDB:
 
         # Create a pandas DataFrame
         df = pd.DataFrame(data, columns=columns)
+
+        # Sort data by Username
+        df.sort_values(by='User ID', inplace=True)
 
         # Export to an Excel file
         df.to_excel(file_name, index=False)
