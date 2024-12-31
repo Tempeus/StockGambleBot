@@ -146,31 +146,22 @@ async def on_reaction_add(reaction, user):
 
 # Command to add a new stock investment
 @bot.command(name='invest')
-async def invest(ctx, stock_name: str, current_price = None):
+async def invest(ctx, stock_name: str):
     """
     Invest $20 into a stock.
 
-    Usage: $invest <stock_name> [purchase price]
+    Usage: $invest <stock_name>
 
-    If no purchase price is provided, the bot will use the latest price from Yahoo Finance
+    The bot will use the latest price from Yahoo Finance
     """
-    if current_price is not None:
-        try:
-            current_price = float(current_price)
-            if current_price <= 0:
-                await ctx.send(f"Please put a valid price.")
-                return
-        except ValueError:
-            await ctx.send(f"Please provide a valid numerical price for {stock_name}.")
-            return
-    
+    current_price = None
+
     if ticker_exists(stock_name):
-        if current_price is None:
-            try:
-                current_price = get_stock_price(stock_name)
-            except Exception as e:
-                await ctx.send(f"Stock {stock_name} does not exist. Please try again.")
-                return
+        try:
+            current_price = get_stock_price(stock_name)
+        except Exception as e:
+            await ctx.send(f"Stock {stock_name} does not exist. Please try again.")
+            return
             
         if current_price is None:
             await ctx.send(f"Stock {stock_name} does not exist. Please try again.")
